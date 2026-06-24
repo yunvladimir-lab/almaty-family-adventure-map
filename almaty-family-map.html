@@ -113,6 +113,20 @@
   .stat-value { font-size: 22px; font-weight: 800; color: var(--green); }
   .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
+  /* WALK LOG */
+  .log-item { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; }
+  .log-avatar { font-size: 26px; flex-shrink: 0; }
+  .log-info { flex: 1; min-width: 0; }
+  .log-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .log-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .log-km { font-size: 16px; font-weight: 800; color: var(--green); }
+  .log-date { font-size: 10px; color: var(--muted); }
+  .log-del { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; padding: 2px 4px; border-radius: 6px; transition: color .15s; }
+  .log-del:hover { color: #C62828; }
+  .log-empty { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 13px; }
+  .log-week-header { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 14px 0 6px; }
+
   /* POPUP */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s; }
   .overlay.vis { opacity: 1; pointer-events: all; }
@@ -205,6 +219,11 @@
       <div class="stat-box"><div class="stat-value" id="st-km">0</div><div class="stat-label">Км всего</div></div>
       <div class="stat-box"><div class="stat-value" id="st-locs">0</div><div class="stat-label">Мест открыто</div></div>
     </div>
+  </div>
+  <div class="section" style="padding-top:18px">
+    <div class="section-title">История прогулок</div>
+    <div class="filter-tabs" id="log-tabs" style="padding:0 0 10px"></div>
+    <div id="walk-log"></div>
   </div>
 </div>
 
@@ -542,6 +561,89 @@ function renderProfiles() {
   document.getElementById('st-walks').textContent = state.walks.length;
   document.getElementById('st-km').textContent = fkm(totalKm());
   document.getElementById('st-locs').textContent = openLocs;
+  renderWalkLog();
+}
+
+// ============ WALK LOG ============
+let logFilter = 'all';
+
+function renderWalkLog() {
+  const tabs = document.getElementById('log-tabs');
+  tabs.innerHTML = '';
+  [{id:'all',label:'Все'}, ...MEMBERS.map(m=>({id:m.id,label:m.avatar+' '+m.name}))].forEach(f => {
+    const t = document.createElement('div');
+    t.className = 'ftab' + (logFilter===f.id?' active':'');
+    t.textContent = f.label;
+    t.onclick = () => { logFilter = f.id; renderWalkLog(); };
+    tabs.appendChild(t);
+  });
+
+  const log = document.getElementById('walk-log');
+  log.innerHTML = '';
+
+  const walks = (logFilter==='all'
+    ? state.walks
+    : state.walks.filter(w => w.memberId===logFilter)
+  ).slice().reverse();
+
+  if (!walks.length) {
+    log.innerHTML = '<div class="log-empty">Прогулок пока нет.<br>Запиши первую прогулку!</div>';
+    return;
+  }
+
+  // Группировка по неделям
+  let lastWeek = null;
+  walks.forEach(w => {
+    const d = new Date(w.ts);
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - d.getDay() + 1);
+    const weekKey = weekStart.toISOString().slice(0,10);
+    const weekLabel = weekStart.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+
+    if (weekKey !== lastWeek) {
+      const hdr = document.createElement('div');
+      hdr.className = 'log-week-header';
+      hdr.textContent = 'Неделя с ' + weekLabel;
+      log.appendChild(hdr);
+      lastWeek = weekKey;
+    }
+
+    const mem = MEMBERS.find(m=>m.id===w.memberId);
+    const loc = LOCS.find(l=>l.id===w.locationId);
+    const dateStr = d.toLocaleDateString('ru-RU', {day:'numeric', month:'short', weekday:'short'});
+    const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    const hasPhoto = state.photos.some(p=>p.memberId===w.memberId && p.locationId===w.locationId && Math.abs(p.ts-w.ts)<5000);
+
+    const item = document.createElement('div');
+    item.className = 'log-item';
+    item.innerHTML = `
+      <div class="log-avatar">${mem?mem.avatar:'👤'}</div>
+      <div class="log-info">
+        <div class="log-title">${loc?loc.e+' '+loc.name:'Прогулка'}</div>
+        <div class="log-meta">${mem?mem.name:'—'} · ${dateStr} · ${timeStr}${hasPhoto?' · 📷':''}</div>
+      </div>
+      <div class="log-right">
+        <div class="log-km">+${fkm(w.km)} км</div>
+        <button class="log-del" title="Удалить" onclick="deleteWalk(${w.id})">🗑</button>
+      </div>
+    `;
+    log.appendChild(item);
+  });
+}
+
+function deleteWalk(id) {
+  if (!confirm('Удалить эту прогулку?')) return;
+  const walk = state.walks.find(w=>w.id===id);
+  if (!walk) return;
+  state.memberKm[walk.memberId] = Math.max(0, (state.memberKm[walk.memberId]||0) - walk.km);
+  state.walks = state.walks.filter(w=>w.id!==id);
+  // Пересчитать открытые локации и награды для этого участника
+  const km = state.memberKm[walk.memberId];
+  state.unlockedLocs[walk.memberId] = LOCS.filter(l=>l.km<=km).map(l=>l.id);
+  state.unlockedRewards[walk.memberId] = REWARDS.filter(r=>r.km<=km).map(r=>r.id);
+  saveState();
+  renderProfiles();
+  renderMap();
 }
 
 // ============ REWARDS ============
