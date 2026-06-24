@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2E7D32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Almaty Family Adventure Map</title>
+<style>
+  :root {
+    --green: #2E7D32; --green-light: #4CAF50; --green-pale: #E8F5E9;
+    --amber: #F59E0B; --amber-pale: #FEF3C7;
+    --bg: #F5F7FA; --card: #FFFFFF; --text: #1A1A2E; --muted: #6B7280;
+    --border: #E5E7EB; --radius: 16px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0F1117; --card:#1E2030; --text:#E8EAED; --muted:#9AA0A6; --border:#2D2F3E; --green-pale:#1B3A1E; --amber-pale:#2D2200; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; }
+
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 1000; }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; font-size: 10px; color: var(--muted); cursor: pointer; border: none; background: none; transition: color .2s; min-height: 56px; }
+  .nav-btn.active { color: var(--green); }
+  .nav-btn svg { width: 22px; height: 22px; }
+
+  .page { display: none; min-height: 100vh; padding-bottom: 60px; }
+  .page.active { display: block; }
+
+  .topbar { background: var(--green); color: #fff; padding: 14px 18px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-title { font-size: 17px; font-weight: 700; }
+  .topbar-sub { font-size: 12px; opacity: .8; margin-top: 1px; }
+
+  /* MAP */
+  .map-wrap { position: relative; width: 100%; height: calc(100vh - 56px - 60px); overflow: hidden; background: #c8e6c9; cursor: grab; touch-action: none; }
+  .map-wrap.dragging { cursor: grabbing; }
+  #map-svg-container { position: absolute; transform-origin: 0 0; will-change: transform; }
+  .map-controls { position: absolute; right: 12px; bottom: 16px; display: flex; flex-direction: column; gap: 6px; z-index: 10; }
+  .map-ctrl-btn { width: 40px; height: 40px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); line-height: 1; }
+  .map-legend { position: absolute; left: 12px; bottom: 16px; background: var(--card); border-radius: 10px; padding: 8px 10px; font-size: 11px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+  .legend-row { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* TOOLTIP */
+  .map-tip { position: absolute; background: #1a1a2e; color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; pointer-events: none; z-index: 20; white-space: nowrap; transform: translateX(-50%); }
+  .map-tip::after { content:''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-bottom: none; border-top-color: #1a1a2e; }
+
+  /* SECTIONS */
+  .section { padding: 14px 16px 0; }
+  .section-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 10px; }
+
+  /* PROFILES */
+  .profiles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px; }
+  .profile-card { background: var(--card); border-radius: var(--radius); padding: 14px 10px; box-shadow: var(--shadow); text-align: center; border: 2px solid transparent; }
+  .profile-avatar { font-size: 34px; margin-bottom: 6px; }
+  .profile-name { font-size: 13px; font-weight: 600; }
+  .profile-km { font-size: 24px; font-weight: 800; color: var(--green); line-height: 1; margin-top: 4px; }
+  .profile-km-label { font-size: 10px; color: var(--muted); }
+  .profile-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 6px; font-size: 15px; min-height: 18px; }
+
+  .progress-section { padding: 14px 16px 0; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .progress-track { height: 12px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,var(--green-light),var(--green)); transition: width .5s; }
+  .progress-mils { display: flex; justify-content: space-between; margin-top: 3px; font-size: 10px; color: var(--muted); }
+
+  /* FORM */
+  .form-section { padding: 14px 16px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: .4px; }
+  .form-input { width: 100%; padding: 12px 14px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; color: var(--text); outline: none; }
+  .form-input:focus { border-color: var(--green); }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 14px; border-radius: 99px; border: 1.5px solid var(--border); font-size: 13px; cursor: pointer; background: var(--card); transition: all .15s; min-height: 40px; display: flex; align-items: center; }
+  .chip.selected { background: var(--green); border-color: var(--green); color: #fff; }
+  .loc-list { border: 1.5px solid var(--border); border-radius: 12px; background: var(--bg); max-height: 200px; overflow-y: auto; }
+  .loc-opt { padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); min-height: 44px; }
+  .loc-opt:last-child { border-bottom: none; }
+  .loc-opt.selected { background: var(--green-pale); color: var(--green); font-weight: 600; }
+  .loc-km-badge { margin-left: auto; font-size: 11px; color: var(--muted); background: var(--border); padding: 2px 7px; border-radius: 99px; }
+  .btn-primary { width: 100%; padding: 15px; background: var(--green); color: #fff; border: none; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+  .btn-primary:active { opacity: .85; }
+
+  /* REWARDS */
+  .filter-tabs { display: flex; gap: 6px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .ftab { padding: 6px 13px; border-radius: 99px; border: 1.5px solid var(--border); font-size: 12px; cursor: pointer; background: var(--card); white-space: nowrap; min-height: 32px; display: flex; align-items: center; }
+  .ftab.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .rewards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 6px 16px 16px; }
+  .reward-card { background: var(--card); border-radius: var(--radius); padding: 14px 10px; box-shadow: var(--shadow); text-align: center; border: 2px solid transparent; }
+  .reward-card.unlocked { border-color: var(--amber); background: var(--amber-pale); }
+  .reward-card.locked { opacity: .45; filter: grayscale(.5); }
+  .reward-icon { font-size: 30px; margin-bottom: 5px; }
+  .reward-name { font-size: 12px; font-weight: 700; }
+  .reward-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .reward-km { font-size: 11px; color: var(--green); font-weight: 700; margin-top: 4px; }
+
+  /* GALLERY */
+  .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 12px 16px; }
+  .gal-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative; background: var(--border); cursor: pointer; }
+  .gal-item img { width: 100%; height: 100%; object-fit: cover; }
+  .gal-badge { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 9px; padding: 2px 5px; border-radius: 99px; }
+  .gal-add { aspect-ratio: 1; border-radius: 8px; border: 2px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; gap: 5px; color: var(--muted); font-size: 11px; background: var(--card); }
+
+  /* STATS */
+  .stats-row { display: flex; gap: 10px; }
+  .stat-box { flex: 1; background: var(--card); border-radius: 14px; padding: 14px 10px; text-align: center; box-shadow: var(--shadow); }
+  .stat-value { font-size: 22px; font-weight: 800; color: var(--green); }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* POPUP */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .overlay.vis { opacity: 1; pointer-events: all; }
+  .popup { background: var(--card); border-radius: 24px; padding: 30px 22px; max-width: 320px; width: 100%; text-align: center; transform: scale(.88); transition: transform .25s; }
+  .overlay.vis .popup { transform: scale(1); }
+  .popup-icon { font-size: 60px; margin-bottom: 10px; }
+  .popup-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .popup-body { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .popup-btn { width: 100%; padding: 13px; background: var(--green); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+
+  /* CONFETTI */
+  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 3000; overflow: hidden; }
+  .cp { position: absolute; top: -14px; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+  /* PHOTO VIEWER */
+  .photo-viewer { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .photo-viewer img { max-width: 100%; max-height: 80vh; border-radius: 12px; }
+  .pv-close { position: absolute; top: 18px; right: 18px; background: rgba(255,255,255,.18); border: none; color: #fff; font-size: 28px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- PAGE: MAP -->
+<div id="page-map" class="page active">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">🗺 Almaty Adventure</div>
+      <div class="topbar-sub">Семейная карта приключений</div>
+    </div>
+    <div style="font-size:13px;opacity:.9" id="map-total-km">0 км всего</div>
+  </div>
+  <div class="map-wrap" id="map-wrap">
+    <div id="map-svg-container"></div>
+    <div class="map-controls">
+      <button class="map-ctrl-btn" onclick="mapZoom(1.3)">+</button>
+      <button class="map-ctrl-btn" onclick="mapZoom(0.77)">−</button>
+      <button class="map-ctrl-btn" style="font-size:16px" onclick="mapReset()">⌖</button>
+    </div>
+    <div class="map-legend">
+      <div class="legend-row"><div class="legend-dot" style="background:#4CAF50"></div>Открыто</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#9E9E9E"></div>Заперто</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#FF9800"></div>Дом</div>
+    </div>
+    <div class="map-tip" id="map-tip" style="display:none"></div>
+  </div>
+</div>
+
+<!-- PAGE: WALK -->
+<div id="page-walk" class="page">
+  <div class="topbar">
+    <div><div class="topbar-title">+ Записать прогулку</div><div class="topbar-sub">Добавь сегодняшнюю прогулку</div></div>
+  </div>
+  <div class="form-section">
+    <div class="form-group">
+      <label class="form-label">👤 Кто гулял?</label>
+      <div class="chip-row" id="member-chips"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📏 Километров?</label>
+      <input type="number" class="form-input" id="km-input" placeholder="Например: 2.5" step="0.1" min="0.1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">📍 Куда ходили?</label>
+      <div class="loc-list" id="loc-list"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📷 Фото (необязательно)</label>
+      <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
+      <div class="chip" onclick="document.getElementById('photo-input').click()">📷 Выбрать фото</div>
+      <div id="photo-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+    </div>
+    <button class="btn-primary" onclick="recordWalk()">✅ Записать прогулку</button>
+  </div>
+</div>
+
+<!-- PAGE: PROFILES -->
+<div id="page-profiles" class="page">
+  <div class="topbar">
+    <div><div class="topbar-title">👨‍👩‍👧‍👦 Семья</div><div class="topbar-sub">Прогресс каждого участника</div></div>
+  </div>
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>🏠 Дом</span>
+      <span id="fam-prog-km">0 / 12 км</span>
+      <span>🎿 Шымбулак</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="fam-prog-fill" style="width:0%"></div></div>
+    <div class="progress-mils"><span>0</span><span>3</span><span>6</span><span>9</span><span>12 км</span></div>
+  </div>
+  <div class="profiles-grid" id="profiles-grid"></div>
+  <div class="section">
+    <div class="section-title">Статистика семьи</div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-value" id="st-walks">0</div><div class="stat-label">Прогулок</div></div>
+      <div class="stat-box"><div class="stat-value" id="st-km">0</div><div class="stat-label">Км всего</div></div>
+      <div class="stat-box"><div class="stat-value" id="st-locs">0</div><div class="stat-label">Мест открыто</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: REWARDS -->
+<div id="page-rewards" class="page">
+  <div class="topbar">
+    <div><div class="topbar-title">🏆 Награды</div><div class="topbar-sub">Разблокируй все достижения</div></div>
+  </div>
+  <div class="filter-tabs" id="rewards-tabs"></div>
+  <div class="rewards-grid" id="rewards-grid"></div>
+</div>
+
+<!-- PAGE: GALLERY -->
+<div id="page-gallery" class="page">
+  <div class="topbar">
+    <div><div class="topbar-title">📷 Галерея</div><div class="topbar-sub">Фотографии прогулок</div></div>
+  </div>
+  <div class="filter-tabs" id="gallery-tabs"></div>
+  <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('map',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+    Карта
+  </button>
+  <button class="nav-btn" onclick="showPage('walk',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Прогулка
+  </button>
+  <button class="nav-btn" onclick="showPage('profiles',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Семья
+  </button>
+  <button class="nav-btn" onclick="showPage('rewards',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+    Награды
+  </button>
+  <button class="nav-btn" onclick="showPage('gallery',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Фото
+  </button>
+</nav>
+
+<!-- POPUP -->
+<div class="overlay" id="overlay" onclick="closePopupClick(event)">
+  <div class="popup">
+    <div class="popup-icon" id="pu-icon">🎉</div>
+    <div class="popup-title" id="pu-title">Поздравляем!</div>
+    <div class="popup-body" id="pu-body">Вы открыли новое место!</div>
+    <button class="popup-btn" onclick="closePopup()">Ура! 🎊</button>
+  </div>
+</div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<script>
+// ============ DATA ============
+const MEMBERS = [
+  {id:'mom', name:'Мама', avatar:'👩'},
+  {id:'dad', name:'Папа', avatar:'👨'},
+  {id:'kid1', name:'Ребёнок 1', avatar:'👧'},
+  {id:'kid2', name:'Ребёнок 2', avatar:'👦'}
+];
+
+const LOCS = [
+  {id:1, name:'Зоопарк', e:'🦁', km:1.5, cat:'Развлечения', lat:43.2255, lng:76.9315},
+  {id:2, name:'Ботанический сад', e:'🌺', km:1.8, cat:'Природа', lat:43.2282, lng:76.9563},
+  {id:3, name:'Зелёный базар', e:'🛒', km:2.5, cat:'Рынок', lat:43.2589, lng:76.9451},
+  {id:4, name:'Арбат', e:'🚶', km:2.8, cat:'Прогулка', lat:43.2565, lng:76.9388},
+  {id:5, name:'Центральный парк', e:'🌲', km:2.8, cat:'Парк', lat:43.2498, lng:76.9458},
+  {id:6, name:'Парк 28 панфиловцев', e:'🌳', km:3.2, cat:'Парк', lat:43.2606, lng:76.9492},
+  {id:7, name:'Собор Вознесения', e:'⛪', km:3.3, cat:'История', lat:43.2601, lng:76.9503},
+  {id:8, name:'Кок-Тобе', e:'⛰', km:3.8, cat:'Горы', lat:43.2255, lng:76.9726},
+  {id:9, name:'Мега Алматы', e:'🏬', km:4.2, cat:'Торговля', lat:43.2222, lng:76.8892},
+  {id:10, name:'Атакент', e:'🎡', km:5.5, cat:'Парк', lat:43.2295, lng:76.8918},
+  {id:11, name:'Медеу', e:'⛸', km:8.0, cat:'Горы', lat:43.1575, lng:77.0117},
+  {id:12, name:'Шымбулак', e:'🎿', km:12.0, cat:'Горы', lat:43.1331, lng:77.0767},
+  {id:13, name:'Большое Алматинское озеро', e:'🏔', km:28.0, cat:'Природа', lat:43.0555, lng:76.9900},
+  {id:14, name:'Чарынский каньон', e:'🏜', km:195, cat:'Природа', lat:43.3536, lng:79.0731}
+];
+
+const REWARDS = [
+  {id:'r1', icon:'👟', name:'Первый шаг', desc:'Первая прогулка!', km:1},
+  {id:'r2', icon:'🌞', name:'Прогульщик', desc:'Вышли снова', km:2},
+  {id:'r3', icon:'🔭', name:'Исследователь', desc:'Центр покорён', km:3},
+  {id:'r4', icon:'🏅', name:'Спортсмен', desc:'Настоящий результат', km:5},
+  {id:'r5', icon:'🏙', name:'Горожанин', desc:'Весь город — ваш!', km:8},
+  {id:'r6', icon:'⛷', name:'Горец', desc:'Шымбулак достигнут!', km:12},
+  {id:'r7', icon:'🦅', name:'Следопыт', desc:'Невероятные расстояния', km:20},
+  {id:'r8', icon:'🏆', name:'Легенда Алматы', desc:'Вы — легенда!', km:50}
+];
+
+// ============ STATE ============
+function loadState() {
+  try { const d = localStorage.getItem('afam2'); if (d) return JSON.parse(d); } catch(e) {}
+  return { walks:[], photos:[], memberKm:{mom:0,dad:0,kid1:0,kid2:0}, unlockedLocs:{}, unlockedRewards:{} };
+}
+function saveState() { try { localStorage.setItem('afam2', JSON.stringify(state)); } catch(e) {} }
+let state = loadState();
+
+function fkm(n) { return n === Math.floor(n) ? String(n) : n.toFixed(1); }
+function maxKm() { return Math.max(...Object.values(state.memberKm), 0); }
+function totalKm() { return Object.values(state.memberKm).reduce((a,b)=>a+b,0); }
+function getUnlockedLocs(mid) { return state.unlockedLocs[mid] || []; }
+function getUnlockedRew(mid) { return state.unlockedRewards[mid] || []; }
+
+// ============ MAP SVG ============
+// Coordinate system: lat 43.08-43.31, lng 76.85-77.12
+// SVG: 1200 x 1000 px
+const MAP_W = 1200, MAP_H = 1000;
+const LAT_MAX = 43.31, LAT_MIN = 43.08;
+const LNG_MIN = 76.85, LNG_MAX = 77.12;
+
+function toSvg(lat, lng) {
+  return {
+    x: (lng - LNG_MIN) / (LNG_MAX - LNG_MIN) * MAP_W,
+    y: (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * MAP_H
+  };
+}
+
+// Map pan/zoom state
+let mapTx = 0, mapTy = 0, mapScale = 1;
+let dragStart = null, dragOrigin = null;
+let pinchStart = null;
+
+function applyMapTransform(animate) {
+  const c = document.getElementById('map-svg-container');
+  if (animate) c.style.transition = 'transform .25s ease';
+  else c.style.transition = 'none';
+  c.style.transform = `translate(${mapTx}px,${mapTy}px) scale(${mapScale})`;
+}
+
+function clampMap() {
+  const wrap = document.getElementById('map-wrap');
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  const sw = MAP_W * mapScale, sh = MAP_H * mapScale;
+  if (sw > ww) { mapTx = Math.min(0, Math.max(mapTx, ww - sw)); } else { mapTx = (ww - sw) / 2; }
+  if (sh > wh) { mapTy = Math.min(0, Math.max(mapTy, wh - sh)); } else { mapTy = (wh - sh) / 2; }
+}
+
+function mapZoom(factor) {
+  const wrap = document.getElementById('map-wrap');
+  const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
+  const newScale = Math.min(4, Math.max(0.4, mapScale * factor));
+  mapTx = cx - (cx - mapTx) * (newScale / mapScale);
+  mapTy = cy - (cy - mapTy) * (newScale / mapScale);
+  mapScale = newScale;
+  clampMap();
+  applyMapTransform(true);
+}
+
+function mapReset() {
+  const wrap = document.getElementById('map-wrap');
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  // Fit central Almaty (first 12 locations)
+  mapScale = Math.min(ww / MAP_W, wh / MAP_H) * 1.0;
+  mapTx = (ww - MAP_W * mapScale) / 2;
+  mapTy = (wh - MAP_H * mapScale) / 2;
+  applyMapTransform(true);
+}
+
+function initMapEvents() {
+  const wrap = document.getElementById('map-wrap');
+  // Mouse
+  wrap.addEventListener('mousedown', e => {
+    dragStart = {x: e.clientX, y: e.clientY};
+    dragOrigin = {tx: mapTx, ty: mapTy};
+    wrap.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragStart) return;
+    mapTx = dragOrigin.tx + (e.clientX - dragStart.x);
+    mapTy = dragOrigin.ty + (e.clientY - dragStart.y);
+    clampMap(); applyMapTransform(false);
+  });
+  window.addEventListener('mouseup', () => { dragStart = null; wrap.classList.remove('dragging'); });
+  wrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    const rect = wrap.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const ns = Math.min(4, Math.max(0.4, mapScale * factor));
+    mapTx = cx - (cx - mapTx) * (ns / mapScale);
+    mapTy = cy - (cy - mapTy) * (ns / mapScale);
+    mapScale = ns; clampMap(); applyMapTransform(false);
+  }, {passive: false});
+  // Touch
+  wrap.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      dragStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+      dragOrigin = {tx: mapTx, ty: mapTy};
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStart = { dist: Math.hypot(dx,dy), scale: mapScale, tx: mapTx, ty: mapTy,
+        cx: (e.touches[0].clientX + e.touches[1].clientX)/2,
+        cy: (e.touches[0].clientY + e.touches[1].clientY)/2 };
+      dragStart = null;
+    }
+  }, {passive: true});
+  wrap.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && dragStart) {
+      mapTx = dragOrigin.tx + (e.touches[0].clientX - dragStart.x);
+      mapTy = dragOrigin.ty + (e.touches[0].clientY - dragStart.y);
+      clampMap(); applyMapTransform(false);
+    } else if (e.touches.length === 2 && pinchStart) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx,dy);
+      const ns = Math.min(4, Math.max(0.4, pinchStart.scale * dist / pinchStart.dist));
+      const wrap = document.getElementById('map-wrap');
+      const rect = wrap.getBoundingClientRect();
+      const cx = pinchStart.cx - rect.left, cy = pinchStart.cy - rect.top;
+      mapTx = cx - (cx - pinchStart.tx) * (ns / pinchStart.scale);
+      mapTy = cy - (cy - pinchStart.ty) * (ns / pinchStart.scale);
+      mapScale = ns; clampMap(); applyMapTransform(false);
+    }
+  }, {passive: false});
+  wrap.addEventListener('touchend', () => { dragStart = null; pinchStart = null; });
+}
+
+function buildMapSVG() {
+  const home = toSvg(43.2309, 76.9471);
+
+  // Background areas
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${MAP_W}" height="${MAP_H}" viewBox="0 0 ${MAP_W} ${MAP_H}">`;
+
+  // Background
+  svg += `<rect width="${MAP_W}" height="${MAP_H}" fill="#d4e8c2"/>`;
+
+  // Mountain area (south)
+  svg += `<path d="M0,650 Q300,580 600,700 Q800,750 1200,680 L1200,1000 L0,1000 Z" fill="#b8d4a0" opacity=".6"/>`;
+  svg += `<path d="M500,720 Q700,660 900,730 Q1050,760 1200,700 L1200,1000 L500,1000 Z" fill="#9ec48c" opacity=".5"/>`;
+
+  // City blocks (simplified grid)
+  const blocks = [
+    // Central Almaty streets (approximate)
+    {x:180,y:180,w:600,h:8,r:4,f:'#b0c4a0'}, // Al-Farabi
+    {x:180,y:270,w:600,h:6,r:3,f:'#b0c4a0'},
+    {x:180,y:350,w:600,h:6,r:3,f:'#b0c4a0'},
+    {x:220,y:100,w:6,h:400,r:3,f:'#b0c4a0'},
+    {x:340,y:80,w:6,h:420,r:3,f:'#b0c4a0'},
+    {x:450,y:80,w:6,h:420,r:3,f:'#b0c4a0'},
+    {x:560,y:100,w:6,h:380,r:3,f:'#b0c4a0'},
+    // Main boulevard
+    {x:160,y:310,w:660,h:12,r:6,f:'#a8bc98'},
+  ];
+  blocks.forEach(b => {
+    svg += `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${b.r}" fill="${b.f}" opacity=".7"/>`;
+  });
+
+  // Park areas
+  svg += `<ellipse cx="430" cy="270" rx="55" ry="40" fill="#8bc34a" opacity=".5"/>`;  // Central park
+  svg += `<ellipse cx="445" cy="215" rx="40" ry="30" fill="#8bc34a" opacity=".4"/>`;  // Park 28
+  svg += `<ellipse cx="186" cy="350" rx="60" ry="45" fill="#8bc34a" opacity=".4"/>`;  // Atakent
+
+  // River / Alatau foothills line
+  svg += `<path d="M0,620 Q200,600 400,640 Q700,680 900,650 Q1050,630 1200,660" stroke="#6aaa58" stroke-width="3" fill="none" opacity=".4"/>`;
+
+  // Road to Medeu/Shymbulak
+  const medeu = toSvg(43.1575, 77.0117);
+  const shym = toSvg(43.1331, 77.0767);
+  svg += `<path d="M${home.x},${home.y} Q${(home.x+medeu.x)/2+40},${(home.y+medeu.y)/2-20} ${medeu.x},${medeu.y}" stroke="#a0b090" stroke-width="4" fill="none" stroke-dasharray="10,6" opacity=".6"/>`;
+  svg += `<path d="M${medeu.x},${medeu.y} Q${(medeu.x+shym.x)/2},${(medeu.y+shym.y)/2-30} ${shym.x},${shym.y}" stroke="#a0b090" stroke-width="3" fill="none" stroke-dasharray="8,5" opacity=".5"/>`;
+
+  // Home marker
+  svg += `<circle cx="${home.x}" cy="${home.y}" r="18" fill="#FF9800" stroke="white" stroke-width="3"/>`;
+  svg += `<text x="${home.x}" y="${home.y+6}" text-anchor="middle" font-size="16">🏠</text>`;
+  svg += `<text x="${home.x}" y="${home.y+34}" text-anchor="middle" font-size="10" fill="#555" font-family="sans-serif">Дом</text>`;
+
+  // Location markers
+  const bestKm = maxKm();
+  LOCS.forEach(loc => {
+    if (loc.lat < LAT_MIN || loc.lat > LAT_MAX || loc.lng < LNG_MIN || loc.lng > LNG_MAX) return;
+    const p = toSvg(loc.lat, loc.lng);
+    const unlocked = loc.km <= bestKm;
+    const color = unlocked ? '#4CAF50' : '#9E9E9E';
+    const hasPhoto = state.photos.some(ph => ph.locationId === loc.id);
+    svg += `<g class="loc-marker" data-id="${loc.id}" data-name="${loc.name}" data-km="${loc.km}" style="cursor:pointer">`;
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="16" fill="${color}" stroke="white" stroke-width="2.5" opacity="${unlocked?1:0.6}"/>`;
+    svg += `<text x="${p.x}" y="${p.y+5}" text-anchor="middle" font-size="13">${loc.e}</text>`;
+    if (hasPhoto) {
+      svg += `<circle cx="${p.x+11}" cy="${p.y-11}" r="7" fill="#2196F3" stroke="white" stroke-width="1.5"/>`;
+      svg += `<text x="${p.x+11}" y="${p.y-8}" text-anchor="middle" font-size="8">📷</text>`;
+    }
+    if (unlocked) {
+      svg += `<text x="${p.x}" y="${p.y+30}" text-anchor="middle" font-size="9" fill="#333" font-family="sans-serif" font-weight="bold">${loc.name.length > 12 ? loc.name.slice(0,12)+'…' : loc.name}</text>`;
+    }
+    svg += `</g>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderMap() {
+  const container = document.getElementById('map-svg-container');
+  container.innerHTML = buildMapSVG();
+  document.getElementById('map-total-km').textContent = fkm(totalKm()) + ' км всего';
+
+  // Attach tooltip events
+  container.querySelectorAll('.loc-marker').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = +el.dataset.id;
+      const loc = LOCS.find(l => l.id === id);
+      if (!loc) return;
+      const unlocked = loc.km <= maxKm();
+      showPopupQueue([{
+        icon: loc.e,
+        title: unlocked ? loc.name : '🔒 ' + loc.name,
+        body: unlocked
+          ? `Открыто! Расстояние: ${loc.km} км от дома.`
+          : `Нужно пройти ${loc.km} км, чтобы открыть это место.`
+      }]);
+    });
+  });
+}
+
+// ============ WALK FORM ============
+let selMember = null, selLoc = null, pendingPhotos = [];
+
+function initWalkForm() {
+  const chips = document.getElementById('member-chips');
+  chips.innerHTML = '';
+  MEMBERS.forEach(m => {
+    const c = document.createElement('div');
+    c.className = 'chip' + (selMember === m.id ? ' selected' : '');
+    c.textContent = m.avatar + ' ' + m.name;
+    c.onclick = () => { selMember = m.id; initWalkForm(); };
+    chips.appendChild(c);
+  });
+
+  const list = document.getElementById('loc-list');
+  list.innerHTML = '';
+  LOCS.forEach(loc => {
+    const el = document.createElement('div');
+    el.className = 'loc-opt' + (selLoc === loc.id ? ' selected' : '');
+    el.innerHTML = `<span>${loc.e}</span><span>${loc.name}</span><span class="loc-km-badge">${loc.km} км</span>`;
+    el.onclick = () => { selLoc = loc.id; initWalkForm(); };
+    list.appendChild(el);
+  });
+}
+
+document.getElementById('photo-input').addEventListener('change', function(e) {
+  Array.from(e.target.files).forEach(f => {
+    if (f.size > 10*1024*1024) { alert('Файл слишком большой (макс 10 МБ)'); return; }
+    const r = new FileReader();
+    r.onload = ev => { pendingPhotos.push({data: ev.target.result}); renderPhotoPrev(); };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+});
+
+function renderPhotoPrev() {
+  const el = document.getElementById('photo-preview');
+  el.innerHTML = '';
+  pendingPhotos.forEach((p, i) => {
+    const w = document.createElement('div');
+    w.style.cssText = 'position:relative;width:66px;height:66px;border-radius:8px;overflow:hidden';
+    w.innerHTML = `<img src="${p.data}" style="width:100%;height:100%;object-fit:cover"><div onclick="rmPhoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer">×</div>`;
+    el.appendChild(w);
+  });
+}
+function rmPhoto(i) { pendingPhotos.splice(i,1); renderPhotoPrev(); }
+
+function recordWalk() {
+  const km = parseFloat(document.getElementById('km-input').value);
+  if (!selMember) { alert('Выбери участника'); return; }
+  if (!km || km <= 0) { alert('Введи километры'); return; }
+  if (!selLoc) { alert('Выбери место'); return; }
+
+  const prevKm = state.memberKm[selMember] || 0;
+  state.memberKm[selMember] = prevKm + km;
+
+  state.walks.push({id:Date.now(), memberId:selMember, locationId:selLoc, km, ts:Date.now()});
+
+  pendingPhotos.forEach(p => {
+    state.photos.push({id:Date.now()+Math.random(), data:p.data, memberId:selMember, locationId:selLoc, ts:Date.now()});
+  });
+
+  const newKm = state.memberKm[selMember];
+  const prevLocs = getUnlockedLocs(selMember);
+  if (!state.unlockedLocs[selMember]) state.unlockedLocs[selMember] = [];
+  const newLocs = [];
+  LOCS.forEach(l => { if (l.km <= newKm && !prevLocs.includes(l.id)) { state.unlockedLocs[selMember].push(l.id); newLocs.push(l); }});
+
+  const prevRews = getUnlockedRew(selMember);
+  if (!state.unlockedRewards[selMember]) state.unlockedRewards[selMember] = [];
+  const newRews = [];
+  REWARDS.forEach(r => { if (r.km <= newKm && !prevRews.includes(r.id)) { state.unlockedRewards[selMember].push(r.id); newRews.push(r); }});
+
+  saveState();
+
+  document.getElementById('km-input').value = '';
+  selLoc = null; pendingPhotos = [];
+  renderPhotoPrev(); initWalkForm();
+
+  const mem = MEMBERS.find(m => m.id === selMember);
+  const fem = mem.id === 'mom' || mem.id === 'kid1';
+  let queue = [];
+  newLocs.forEach(l => queue.push({icon:l.e, title:'Место открыто!', body:`${mem.avatar} ${mem.name} открыл${fem?'а':''} "${l.name}"! ${l.km} км пройдено.`}));
+  newRews.forEach(r => queue.push({icon:r.icon, title:r.name, body:`${mem.avatar} ${mem.name} разблокировал${fem?'а':''} награду! ${r.desc}`}));
+  if (!queue.length) queue.push({icon:'🚶', title:'Прогулка записана!', body:`+${fkm(km)} км для ${mem.name}. Отличная работа!`});
+
+  showPopupQueue(queue);
+  renderMap();
+  renderProfiles();
+}
+
+// ============ POPUP ============
+let _queue = [];
+function showPopupQueue(q) { _queue = [...q]; showNextPopup(); }
+function showNextPopup() {
+  if (!_queue.length) return;
+  const it = _queue.shift();
+  document.getElementById('pu-icon').textContent = it.icon;
+  document.getElementById('pu-title').textContent = it.title;
+  document.getElementById('pu-body').textContent = it.body;
+  document.getElementById('overlay').classList.add('vis');
+  confetti();
+}
+function closePopup() {
+  document.getElementById('overlay').classList.remove('vis');
+  setTimeout(() => { if (_queue.length) showNextPopup(); }, 280);
+}
+function closePopupClick(e) { if (e.target.id === 'overlay') closePopup(); }
+
+function confetti() {
+  const c = document.getElementById('confetti');
+  c.innerHTML = '';
+  const cols = ['#4CAF50','#FF9800','#2196F3','#E91E63','#9C27B0','#FFEB3B'];
+  for (let i = 0; i < 55; i++) {
+    const p = document.createElement('div');
+    p.className = 'cp';
+    const col = cols[i % cols.length];
+    const sz = 6 + Math.random()*8;
+    const dur = 1.6 + Math.random()*1.8;
+    const delay = Math.random()*0.4;
+    p.style.cssText = `left:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${col};border-radius:${Math.random()>.5?'50%':'3px'};animation-duration:${dur}s;animation-delay:${delay}s`;
+    c.appendChild(p);
+    setTimeout(() => p.remove(), (dur+delay)*1000+100);
+  }
+}
+
+// ============ PROFILES ============
+function renderProfiles() {
+  const grid = document.getElementById('profiles-grid');
+  grid.innerHTML = '';
+  MEMBERS.forEach(m => {
+    const km = state.memberKm[m.id]||0;
+    const rews = getUnlockedRew(m.id);
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.innerHTML = `<div class="profile-avatar">${m.avatar}</div><div class="profile-name">${m.name}</div><div class="profile-km">${fkm(km)}</div><div class="profile-km-label">км пройдено</div><div class="profile-badges">${rews.map(id=>REWARDS.find(r=>r.id===id)?.icon||'').join('')}</div>`;
+    grid.appendChild(card);
+  });
+  const best = maxKm();
+  const pct = Math.min(100,(best/12)*100);
+  document.getElementById('fam-prog-fill').style.width = pct+'%';
+  document.getElementById('fam-prog-km').textContent = fkm(best)+' / 12 км';
+  const openLocs = new Set(Object.values(state.unlockedLocs).flat()).size;
+  document.getElementById('st-walks').textContent = state.walks.length;
+  document.getElementById('st-km').textContent = fkm(totalKm());
+  document.getElementById('st-locs').textContent = openLocs;
+}
+
+// ============ REWARDS ============
+let rewFilter = 'all';
+function renderRewards() {
+  const tabs = document.getElementById('rewards-tabs');
+  tabs.innerHTML = '';
+  [{id:'all',label:'Все'}, ...MEMBERS.map(m=>({id:m.id,label:m.avatar+' '+m.name}))].forEach(f => {
+    const t = document.createElement('div');
+    t.className = 'ftab' + (rewFilter===f.id?' active':'');
+    t.textContent = f.label;
+    t.onclick = () => { rewFilter = f.id; renderRewards(); };
+    tabs.appendChild(t);
+  });
+  const grid = document.getElementById('rewards-grid');
+  grid.innerHTML = '';
+  REWARDS.forEach(r => {
+    const unlocked = rewFilter==='all'
+      ? Object.values(state.unlockedRewards).some(arr=>(arr||[]).includes(r.id))
+      : (state.unlockedRewards[rewFilter]||[]).includes(r.id);
+    const card = document.createElement('div');
+    card.className = 'reward-card ' + (unlocked?'unlocked':'locked');
+    card.innerHTML = `<div class="reward-icon">${r.icon}</div><div class="reward-name">${r.name}</div><div class="reward-desc">${r.desc}</div><div class="reward-km">${r.km} км</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ============ GALLERY ============
+let galFilter = 'all';
+function renderGallery() {
+  const tabs = document.getElementById('gallery-tabs');
+  tabs.innerHTML = '';
+  [{id:'all',label:'Все'}, ...MEMBERS.map(m=>({id:m.id,label:m.avatar+' '+m.name}))].forEach(f => {
+    const t = document.createElement('div');
+    t.className = 'ftab' + (galFilter===f.id?' active':'');
+    t.textContent = f.label;
+    t.onclick = () => { galFilter = f.id; renderGallery(); };
+    tabs.appendChild(t);
+  });
+  const grid = document.getElementById('gallery-grid');
+  grid.innerHTML = '';
+  const add = document.createElement('div');
+  add.className = 'gal-add';
+  add.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Добавить</span>`;
+  add.onclick = () => showPage('walk', document.querySelectorAll('.nav-btn')[1]);
+  grid.appendChild(add);
+
+  const photos = galFilter==='all' ? state.photos : state.photos.filter(p=>p.memberId===galFilter);
+  if (!photos.length) {
+    const em = document.createElement('div');
+    em.style.cssText = 'grid-column:1/-1;padding:20px;text-align:center;color:var(--muted);font-size:13px';
+    em.textContent = 'Фотографий пока нет. Добавьте фото во время прогулки!';
+    grid.appendChild(em);
+    return;
+  }
+  photos.slice().reverse().forEach(p => {
+    const loc = LOCS.find(l=>l.id===p.locationId);
+    const item = document.createElement('div');
+    item.className = 'gal-item';
+    item.innerHTML = `<img src="${p.data}" loading="lazy"><div class="gal-badge">${loc?loc.e:'📍'}</div>`;
+    item.onclick = () => viewPhoto(p.data);
+    grid.appendChild(item);
+  });
+}
+
+function viewPhoto(src) {
+  const div = document.createElement('div');
+  div.className = 'photo-viewer';
+  div.innerHTML = `<button class="pv-close" onclick="this.parentElement.remove()">×</button><img src="${src}">`;
+  div.onclick = e => { if (e.target===div) div.remove(); };
+  document.body.appendChild(div);
+}
+
+// ============ NAV ============
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name==='walk') initWalkForm();
+  if (name==='profiles') renderProfiles();
+  if (name==='rewards') renderRewards();
+  if (name==='gallery') renderGallery();
+  if (name==='map') { renderMap(); }
+}
+
+// ============ INIT ============
+window.addEventListener('DOMContentLoaded', () => {
+  initMapEvents();
+  renderMap();
+  setTimeout(mapReset, 50);
+  initWalkForm();
+  renderProfiles();
+});
+</script>
+</body>
+</html>
