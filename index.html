@@ -48,6 +48,12 @@
   .map-popup-badge { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
   .badge-open { background: #E8F5E9; color: #2E7D32; }
   .badge-locked { background: #F3F4F6; color: #9E9E9E; }
+  .badge-age { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .age-3 { background: #FFF3E0; color: #E65100; }
+  .age-13 { background: #EDE7F6; color: #4527A0; }
+  .loc-opt-age { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; margin-left: 4px; white-space: nowrap; }
+  .age-tag-3  { background: #FFF3E0; color: #E65100; }
+  .age-tag-13 { background: #EDE7F6; color: #4527A0; }
 
   /* SECTIONS */
   .section { padding: 14px 16px 0; }
@@ -162,7 +168,9 @@
   <div style="position:relative">
     <div id="leaflet-map"></div>
     <div class="map-legend">
-      <div class="legend-row"><div class="legend-dot" style="background:#4CAF50"></div>Открыто</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#4CAF50"></div>Семейные</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#FF7043"></div>👶 3+ года</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#7C4DFF"></div>🧑 13+ лет</div>
       <div class="legend-row"><div class="legend-dot" style="background:#9E9E9E"></div>Заперто</div>
       <div class="legend-row"><div class="legend-dot" style="background:#FF9800"></div>Дом</div>
     </div>
@@ -290,20 +298,36 @@ const MEMBERS = [
 ];
 
 const LOCS = [
-  {id:1, name:'Зоопарк', e:'🦁', km:1.5, cat:'Развлечения', lat:43.2255, lng:76.9315},
-  {id:2, name:'Ботанический сад', e:'🌺', km:1.8, cat:'Природа', lat:43.2282, lng:76.9563},
-  {id:3, name:'Зелёный базар', e:'🛒', km:2.5, cat:'Рынок', lat:43.2589, lng:76.9451},
-  {id:4, name:'Арбат', e:'🚶', km:2.8, cat:'Прогулка', lat:43.2565, lng:76.9388},
-  {id:5, name:'Центральный парк', e:'🌲', km:2.8, cat:'Парк', lat:43.2498, lng:76.9458},
-  {id:6, name:'Парк 28 панфиловцев', e:'🌳', km:3.2, cat:'Парк', lat:43.2606, lng:76.9492},
-  {id:7, name:'Собор Вознесения', e:'⛪', km:3.3, cat:'История', lat:43.2601, lng:76.9503},
-  {id:8, name:'Кок-Тобе', e:'⛰', km:3.8, cat:'Горы', lat:43.2255, lng:76.9726},
-  {id:9, name:'Мега Алматы', e:'🏬', km:4.2, cat:'Торговля', lat:43.2222, lng:76.8892},
-  {id:10, name:'Атакент', e:'🎡', km:5.5, cat:'Парк', lat:43.2295, lng:76.8918},
-  {id:11, name:'Медеу', e:'⛸', km:8.0, cat:'Горы', lat:43.1575, lng:77.0117},
-  {id:12, name:'Шымбулак', e:'🎿', km:12.0, cat:'Горы', lat:43.1331, lng:77.0767},
-  {id:13, name:'Большое Алматинское озеро', e:'🏔', km:28.0, cat:'Природа', lat:43.0555, lng:76.9900},
-  {id:14, name:'Чарынский каньон', e:'🏜', km:195, cat:'Природа', lat:43.3536, lng:79.0731}
+  // ── Семейные (все возрасты) ──
+  {id:1,  name:'Зоопарк',                   e:'🦁', km:1.5,  cat:'Развлечения', age:'all', lat:43.2255, lng:76.9315},
+  {id:2,  name:'Ботанический сад',          e:'🌺', km:1.8,  cat:'Природа',     age:'all', lat:43.2282, lng:76.9563},
+  {id:3,  name:'Зелёный базар',             e:'🛒', km:2.5,  cat:'Рынок',       age:'all', lat:43.2589, lng:76.9451},
+  {id:4,  name:'Арбат',                     e:'🚶', km:2.8,  cat:'Прогулка',    age:'all', lat:43.2565, lng:76.9388},
+  {id:5,  name:'Центральный парк',          e:'🌲', km:2.8,  cat:'Парк',        age:'all', lat:43.2498, lng:76.9458},
+  {id:6,  name:'Парк 28 панфиловцев',       e:'🌳', km:3.2,  cat:'Парк',        age:'all', lat:43.2606, lng:76.9492},
+  {id:7,  name:'Собор Вознесения',          e:'⛪', km:3.3,  cat:'История',     age:'all', lat:43.2601, lng:76.9503},
+  {id:8,  name:'Кок-Тобе',                 e:'⛰', km:3.8,  cat:'Горы',        age:'all', lat:43.2255, lng:76.9726},
+  {id:9,  name:'Мега Алматы',              e:'🏬', km:4.2,  cat:'Торговля',    age:'all', lat:43.2222, lng:76.8892},
+  {id:10, name:'Атакент',                  e:'🎡', km:5.5,  cat:'Парк',        age:'all', lat:43.2295, lng:76.8918},
+  {id:11, name:'Медеу',                    e:'⛸', km:8.0,  cat:'Горы',        age:'all', lat:43.1575, lng:77.0117},
+  {id:12, name:'Шымбулак',                 e:'🎿', km:12.0, cat:'Горы',        age:'all', lat:43.1331, lng:77.0767},
+  {id:13, name:'Большое Алматинское озеро',e:'🏔', km:28.0, cat:'Природа',     age:'all', lat:43.0555, lng:76.9900},
+  {id:14, name:'Чарынский каньон',         e:'🏜', km:195,  cat:'Природа',     age:'all', lat:43.3536, lng:79.0731},
+  // ── Для малышей 3+ ──
+  {id:15, name:'Парк Первого Президента',  e:'🎠', km:2.2,  cat:'Малыши',      age:'3+',  lat:43.2180, lng:76.9060},
+  {id:16, name:'Кукольный театр',          e:'🎭', km:2.8,  cat:'Малыши',      age:'3+',  lat:43.2578, lng:76.9441},
+  {id:17, name:'Луна-парк (Горького)',     e:'🎪', km:3.4,  cat:'Малыши',      age:'3+',  lat:43.2522, lng:76.9332},
+  {id:18, name:'Аквапарк Dolphins',        e:'🌊', km:4.8,  cat:'Малыши',      age:'3+',  lat:43.2205, lng:76.8778},
+  {id:19, name:'Детский городок Батыр',    e:'🏰', km:1.9,  cat:'Малыши',      age:'3+',  lat:43.2270, lng:76.9388},
+  {id:20, name:'Парк у Арены',             e:'🌿', km:1.2,  cat:'Малыши',      age:'3+',  lat:43.2330, lng:76.9500},
+  // ── Для подростков 13+ ──
+  {id:21, name:'Скалодром BigWall',        e:'🧗', km:2.0,  cat:'Подростки',   age:'13+', lat:43.2350, lng:76.9410},
+  {id:22, name:'Лазертаг Арена',           e:'🎯', km:3.0,  cat:'Подростки',   age:'13+', lat:43.2500, lng:76.9380},
+  {id:23, name:'Батутный центр Jump',      e:'🤸', km:3.6,  cat:'Подростки',   age:'13+', lat:43.2451, lng:76.9265},
+  {id:24, name:'Скейт-парк Достык',        e:'🛹', km:3.2,  cat:'Подростки',   age:'13+', lat:43.2490, lng:76.9355},
+  {id:25, name:'Бассейн Динамо',           e:'🏊', km:3.5,  cat:'Подростки',   age:'13+', lat:43.2520, lng:76.9218},
+  {id:26, name:'Велодорожка на Медеу',     e:'🚴', km:6.0,  cat:'Подростки',   age:'13+', lat:43.1820, lng:76.9800},
+  {id:27, name:'Верёвочный парк Adrenalin',e:'🌲', km:7.5,  cat:'Подростки',   age:'13+', lat:43.1650, lng:77.0000}
 ];
 
 const REWARDS = [
@@ -363,8 +387,12 @@ function initLeafletMap() {
     .bindPopup('<div class="map-popup-title">🏠 Дом</div><div class="map-popup-sub">ЖК Orion 3, пр. Аль-Фараби 15/1</div>');
 }
 
-function makeLocIcon(emoji, unlocked) {
-  const color = unlocked ? '#4CAF50' : '#9E9E9E';
+const AGE_COLORS = { 'all': '#4CAF50', '3+': '#FF7043', '13+': '#7C4DFF' };
+const AGE_LOCKED  = { 'all': '#9E9E9E', '3+': '#BCAAA4', '13+': '#B39DDB' };
+const AGE_LABEL   = { 'all': '', '3+': '👶 3+', '13+': '🧑 13+' };
+
+function makeLocIcon(emoji, unlocked, age) {
+  const color = unlocked ? (AGE_COLORS[age]||'#4CAF50') : (AGE_LOCKED[age]||'#9E9E9E');
   return L.divIcon({
     className: '',
     html: `<div class="loc-pin" style="background:${color}"><span>${emoji}</span></div>`,
@@ -387,16 +415,18 @@ function renderMap() {
   LOCS.forEach(loc => {
     const unlocked = loc.km <= bestKm;
     const hasPhoto = state.photos.some(ph => ph.locationId === loc.id);
-    const icon = makeLocIcon(loc.e, unlocked);
+    const icon = makeLocIcon(loc.e, unlocked, loc.age);
     const marker = L.marker([loc.lat, loc.lng], {icon}).addTo(leafletMap);
 
     const photoTag = hasPhoto ? '<span style="margin-left:6px">📷</span>' : '';
+    const ageTag = loc.age !== 'all'
+      ? `<span class="badge-age ${loc.age==='3+'?'age-3':'age-13'}">${AGE_LABEL[loc.age]}</span>` : '';
     const badge = unlocked
       ? `<span class="map-popup-badge badge-open">✅ Открыто${photoTag}</span>`
       : `<span class="map-popup-badge badge-locked">🔒 ${loc.km} км для открытия</span>`;
 
     marker.bindPopup(`
-      <div class="map-popup-title">${loc.e} ${loc.name}</div>
+      <div class="map-popup-title">${loc.e} ${loc.name}${ageTag}</div>
       <div class="map-popup-sub">${loc.cat} · ${loc.km} км от дома</div>
       ${badge}
     `);
@@ -416,7 +446,7 @@ function renderMap() {
 }
 
 // ============ WALK FORM ============
-let selMember = null, selLoc = null, pendingPhotos = [];
+let selMember = null, selLoc = null, pendingPhotos = [], locAgeFilter = 'all';
 
 function initWalkForm() {
   const chips = document.getElementById('member-chips');
@@ -429,12 +459,41 @@ function initWalkForm() {
     chips.appendChild(c);
   });
 
+  // Фильтр по возрасту для локаций
+  let ageRow = document.getElementById('loc-age-filter');
+  if (!ageRow) {
+    ageRow = document.createElement('div');
+    ageRow.id = 'loc-age-filter';
+    ageRow.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap';
+    document.getElementById('loc-list').before(ageRow);
+  }
+  ageRow.innerHTML = '';
+  [
+    {id:'all', label:'🗺 Все'},
+    {id:'3+',  label:'👶 3 года'},
+    {id:'13+', label:'🧑 13 лет'}
+  ].forEach(f => {
+    const t = document.createElement('div');
+    t.className = 'chip' + (locAgeFilter === f.id ? ' selected' : '');
+    t.style.cssText = 'font-size:12px;padding:5px 12px;min-height:34px';
+    t.textContent = f.label;
+    t.onclick = () => { locAgeFilter = f.id; initWalkForm(); };
+    ageRow.appendChild(t);
+  });
+
   const list = document.getElementById('loc-list');
   list.innerHTML = '';
-  LOCS.forEach(loc => {
+  const filtered = locAgeFilter === 'all'
+    ? LOCS
+    : LOCS.filter(l => l.age === locAgeFilter || l.age === 'all');
+
+  filtered.forEach(loc => {
     const el = document.createElement('div');
     el.className = 'loc-opt' + (selLoc === loc.id ? ' selected' : '');
-    el.innerHTML = `<span>${loc.e}</span><span>${loc.name}</span><span class="loc-km-badge">${loc.km} км</span>`;
+    const ageTag = loc.age !== 'all'
+      ? `<span class="loc-opt-age ${loc.age==='3+'?'age-tag-3':'age-tag-13'}">${loc.age==='3+'?'👶':'🧑'} ${loc.age}</span>`
+      : '';
+    el.innerHTML = `<span>${loc.e}</span><span>${loc.name}${ageTag}</span><span class="loc-km-badge">${loc.km} км</span>`;
     el.onclick = () => { selLoc = loc.id; initWalkForm(); };
     list.appendChild(el);
   });
